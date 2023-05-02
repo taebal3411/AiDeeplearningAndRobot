@@ -1,0 +1,53 @@
+'''
+RNN의 문제
+Tanh 함수를 사용하기 때문에(1-~1값으로 출력) 최초의 데이터에 비해 전달되는 크기가 줄어들어서 먼 것들끼리 관련성이 줄어드는 것이 단점
+>>>tanh 계산하는 단계를 뛰어넘어 데이터를 전달해주면 어떨까? 하는 아이디어가 발생
+단계를 연결해 주는 것이 LSTM(Long Short Term Memory)
+신경망 갯수가 4배가 되는 이유는 내부처리 함수가 4배로 늘어났기 때문
+과거데이터 반영, 현재데이터 반영, 과거현재데이터 합, 출력 이렇게 함수가 4개이기 때문
+'''
+
+import tensorflow as tf
+ 
+mnist = tf.keras.datasets.mnist
+(X, YT), (x, yt) = mnist.load_data()
+X, x = X/255, x/255
+X, x = X.reshape((60000,28,28)), x.reshape((10000,28,28))
+ 
+model = tf.keras.Sequential([
+        tf.keras.Input(shape=(28,28)),
+      	#tf.keras.layers.LSTM(128, return_sequences=True, activation='relu'),      
+	      #층 추가하려면 return_sequences=True // shape 정보를 뒷단으로 받아오는 역할.
+        tf.keras.layers.LSTM(128, activation='relu'), #LSTM은 마지막에 위치. Shpae을 못봄
+        tf.keras.layers.Dense(10, activation='softmax')
+]) # 신경망 모양 결정(W, B 내부적 준비)
+ 
+model.compile(optimizer='adam',
+                loss='sparse_categorical_crossentropy',
+                metrics=['accuracy'])
+ 
+model.fit(X,YT,epochs=5)
+ 
+model.evaluate(x,yt)
+ 
+model.summary()
+
+'''
+>>>
+Epoch 5/5
+1875/1875 [==============================] - 18s 9ms/step - loss: 0.0543 - accuracy: 0.9829
+313/313 [==============================] - 1s 4ms/step - loss: 0.0572 - accuracy: 0.9832
+
+
+Model: "sequential"
+_________________________________________________________________
+Layer (type)                Output Shape              Param #   
+=================================================================
+lstm (LSTM)                 (None, 128)               80384     # SimpleRNN * 4
+                                                                 
+dense (Dense)               (None, 10)                1290      
+                                                                 
+=================================================================
+Total params: 81,674
+Trainable params: 81,674
+Non-trainable params: 0'''
