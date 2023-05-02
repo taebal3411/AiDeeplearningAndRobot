@@ -1,0 +1,197 @@
+#참고 사이트 https://docs.likejazz.com/lstm/
+
+
+import numpy as np
+ 
+from keras.models import Sequential, Model
+from keras.layers import LSTM
+ 
+import matplotlib.pyplot as plt
+ 
+ 
+# Activation Functions
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+ 
+ 
+def hard_sigmoid(x):
+    return np.clip(0.2 * x + 0.5, 0, 1)
+ 
+ 
+x = np.array([[
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [1.4, 1.5, 1.2],
+    [1.9, 1.1, 1.2],
+    [1.7, 1.4, 1.2],
+    [1.5, 1.3, 1.2],
+    [1.5, 1.3, 1.2],
+    [0, 0.1, 0.2],
+]])  # (None, 10, 3)
+y = np.array([[1, 1, 1, 1, 0]])  # (None, 5) 목표값
+ 
+model = Sequential()
+model.add(LSTM(5, input_shape=(10, 3))) #5를 1로 바꿔서 수업에서 진행함...출력을 1로 줄인것
+ 
+model.compile(loss='MSE',
+              optimizer='SGD',
+              metrics=['accuracy'])
+model.summary()
+ 
+# %%
+model.fit(x, y, epochs=1000)
+ 
+# %% Print weights.
+names = [weight.name for layer in model.layers for weight in layer.weights]
+weights = model.get_weights()
+ 
+# suppress scientific notation
+np.set_printoptions(suppress=True)
+for name, weight in zip(names, weights):
+    print(name, weight.shape)
+    print(weight)
+ 
+    layer_type = name.split('/')[2]
+    if layer_type == 'kernel:0':
+        kernel_0 = weight
+    if layer_type == 'recurrent_kernel:0':
+        recurrent_kernel_0 = weight
+    elif layer_type == 'bias:0':
+        bias_0 = weight
+ 
+    print()
+ 
+# remove unnecessary variables for scientific debugging.
+del layer_type, weight, weights, name, names
+ 
+# %%
+n = 1
+units = 5  # LSTM layers..1로 바꿔서 수업에서 진행함...출력을 1로 줄인것
+ 
+# (3, 20) embedding dims, units * 4
+Wi = kernel_0[:, 0:units]
+Wf = kernel_0[:, units:2 * units]
+Wc = kernel_0[:, 2 * units:3 * units]
+Wo = kernel_0[:, 3 * units:]
+print('Wi', Wi)
+print('Wf', Wf)
+print('Wc', Wc)
+print('Wo', Wo)
+
+ 
+# (5, 20) units, units * 4
+Ui = recurrent_kernel_0[:, 0:units]
+Uf = recurrent_kernel_0[:, units:2 * units]
+Uc = recurrent_kernel_0[:, 2 * units:3 * units]
+Uo = recurrent_kernel_0[:, 3 * units:]
+print('Ui', Ui)
+print('Uf', Uf)
+print('Uc', Uc)
+print('Uo', Uo)
+ 
+# (20,) units * 4
+bi = bias_0[0:units]
+bf = bias_0[units:2 * units]
+bc = bias_0[2 * units:3 * units]
+bo = bias_0[3 * units:]
+print('bi', bi)
+print('bf', bf)
+print('bc', bc)
+print('bo', bo)
+
+ht_1 = np.zeros(n * units).reshape(n, units)
+Ct_1 = np.zeros(n * units).reshape(n, units)
+ 
+# --
+results = []
+for t in range(0, len(x[0, :])):
+    xt = np.array(x[0, t])
+ 
+    ft = sigmoid(np.dot(xt, Wf) + np.dot(ht_1, Uf) + bf)  # forget gate
+    it = sigmoid(np.dot(xt, Wi) + np.dot(ht_1, Ui) + bi)  # input gate
+    ot = sigmoid(np.dot(xt, Wo) + np.dot(ht_1, Uo) + bo)  # output gate
+    Ct = ft * Ct_1 + it * np.tanh(np.dot(xt, Wc) + np.dot(ht_1, Uc) + bc) #이 부분이 simpleRNN
+    ht = ot * np.tanh(Ct)
+ 
+    ht_1 = ht  # hidden state, previous memory state
+    Ct_1 = Ct  # cell state, previous carry state
+ 
+    results.append(ht)
+    print(t, ht)
+ 
+# remove unnecessary variables for scientific debugging.
+del Ct, Ct_1, ft, ht, ht_1, it, ot, xt
+ 
+# The expected value is a little bit different from the actual value.
+# but the implementation is the *SAME* with Keras.
+intermediate_layer_model = Model(inputs=model.input,
+                                 outputs=model.output)
+output = intermediate_layer_model.predict(x[:1])
+print()
+print("Keras:", output)
+ 
+# plot hidden state changes
+plt.plot(np.array(results)[:, 0])
+plt.show()
+
+>>>
+curacy: 0.0000e+00
+Epoch 1000/1000
+1/1 [==============================] - 0s 0s/step - loss: 0.0709 - accuracy: 0.0000e+00
+lstm/lstm_cell/kernel:0 (3, 20)
+[[ 0.08163353 -0.14294276 -0.11296865 -0.04653082 -0.16329402  0.319254
+  -0.10154247 -0.04513958  0.22988786  0.42058876  0.4686982   0.262312
+   0.43530566  0.24935158 -0.12787008  0.17202236  0.4395233   0.4982736
+  -0.21410672 -0.43196946]
+[ 0.08639484 -0.05717609 -0.20780374  0.3370342   0.4680182   0.56984925
+   0.09808096 -0.3184103  -0.29225245  0.20658115  0.00356272  0.37071264
+   0.26104185  0.5474748  -0.1203078   0.5097531  -0.22921328  0.5588304
+   0.5542637  -0.40257785]
+[-0.00222426 -0.12166937  0.47732687  0.16768518  0.14852579  0.06703532
+  -0.31732205  0.35496256 -0.02079823 -0.29732877  0.0566845   0.47998947
+   0.00931285 -0.24081202  0.0775587  -0.28339213 -0.04088796 -0.38041708
+   0.31398734 -0.38171527]]
+ 
+lstm/lstm_cell/recurrent_kernel:0 (5, 20)
+[[ 0.11198577  0.14321643  0.00625467  0.02587198 -0.5617687  -0.18811463
+  -0.0880525   0.07769011  0.16214295 -0.35378185 -0.15073943 -0.10505846
+  -0.06096027  0.3248485   0.21056034  0.01634982  0.02910204  0.06190787
+   0.335026   -0.18770568]
+[-0.13012598 -0.2211883   0.10927001 -0.11713687 -0.12962739  0.2703712
+   0.28013632  0.27992854 -0.21529289  0.05002993  0.02349703  0.08582982
+   0.41677105  0.5108686  -0.06456418  0.33206144 -0.15065594 -0.10270712
+  -0.0871212   0.13720998]
+[-0.08057641  0.39199764  0.44379622  0.05430658 -0.10313295 -0.326669
+   0.5375759   0.11558523  0.3281     -0.03449347  0.2422027  -0.12543659
+  -0.00249562  0.08002125 -0.23967037  0.49596122  0.19648814  0.3277905
+   0.21643835  0.21520069]
+[-0.24540651  0.30060983  0.04198548 -0.31463563 -0.17120174  0.20764814
+   0.14342162 -0.14233436  0.08423164  0.1392496   0.3221696   0.6064051
+   0.06342947  0.08365527  0.17349817  0.18768622 -0.01222583  0.5154466
+   0.4322225  -0.16154145]
+[-0.14712764 -0.06358992  0.02253122 -0.04279066  0.45237276 -0.06015046
+   0.08160346  0.08396923  0.3798066  -0.0730935  -0.1862833   0.14699821
+   0.04311066 -0.07653576  0.01763243 -0.24349181 -0.2652489  -0.48112
+   0.41172063  0.12913063]]
+ 
+lstm/lstm_cell/bias:0 (20,)
+[ 0.12525436  0.18040334  0.15648067  0.15722711 -0.00745423  1.1186337
+  1.1550986   1.1876751   1.169137    0.9851347   0.3768045   0.2751097
+  0.45081863  0.33136612  0.0974711   0.30630854  0.4612989   0.37445602
+  0.3466939  -0.01181161]
+ 
+0 [[0.10881688 0.08906886 0.13268276 0.10001507 0.02403867]]
+1 [[0.20353133 0.17235853 0.24725506 0.20507906 0.04112131]]
+2 [[0.2830077  0.25173137 0.34299399 0.30477862 0.05346874]]
+3 [[0.34810952 0.32508104 0.42093396 0.3916875  0.06248787]]
+4 [[0.61462101 0.48710575 0.70196031 0.67923745 0.00259271]]
+5 [[ 0.73080498  0.62922999  0.80996286  0.74459921 -0.00705027]]
+6 [[ 0.8065871   0.65070215  0.85612497  0.81542548 -0.01539579]]
+7 [[ 0.82185321  0.66515219  0.86422735  0.83778262 -0.02005223]]
+8 [[ 0.83383814  0.67839929  0.87431431  0.84830043 -0.02210742]]
+9 [[ 0.73578401  0.61082096  0.73074318  0.75584101 -0.01873303]]
+1/1 [==============================] - 0s 234ms/step
+ 
+Keras: [[ 0.73578393  0.610821    0.7307431   0.75584096 -0.01873303]] # 10회차 결과와 동일함을 
