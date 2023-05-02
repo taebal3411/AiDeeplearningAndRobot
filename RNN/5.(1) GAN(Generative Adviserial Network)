@@ -1,0 +1,79 @@
+#GAN
+#오차가 이전에 배웠던 평균제곱오차 형태가 아니라서 gradient tape을 써서 직접 학습시켜야 함
+#AutuEncoder와 비슷하게 사용되는 두 신경망이 시작과 끝 형태를 갖추고 있다
+
+# GAN - Faker vs Police
+import tensorflow as tf
+import matplotlib.pyplot as plt
+ 
+batch_size = 100
+epochs = 20000
+z_dim = 20
+ 
+z_vis = tf.random.normal([10,z_dim])
+ 
+mnist = tf.keras.datasets.fashion_mnist
+ 
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+x_train = x_train/255.0
+ 
+x_iter = iter(tf.data.Dataset.from_tensor_slices(x_train).shuffle(4*batch_size).batch(batch_size).repeat())
+ 
+# Faker Brain
+Faker = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(28*28//2, input_shape=(z_dim,),activation='relu'),
+    tf.keras.layers.Dense(28*28, activation='sigmoid'),
+    tf.keras.layers.Reshape((28,28))])
+# Police Brain
+Police = tf.keras.models.Sequential([
+    tf.keras.layers.Flatten(input_shape=(28,28)),
+    tf.keras.layers.Dense(28*28//2, activation='relu'),
+    tf.keras.layers.Dense(1, activation='sigmoid')])
+# Optimizers
+FakerOpt = tf.keras.optimizers.Adam(1e-4)    
+PoliceOpt = tf.keras.optimizers.Adam(1e-4)
+ 
+# Train
+for epoch in range(epochs):
+    fake_noises = tf.random.normal([batch_size, z_dim])
+    # print('noises:',fake_noises.shape)
+    # fake_images = Faker(fake_noises)
+    # print('fake images:',fake_images.shape)
+    real_images = next(x_iter)
+    # print('real_images:',real_images.shape)
+ 
+    with tf.GradientTape() as Faker_tape, tf.GradientTape() as Police_tape:
+        fake_images = Faker(fake_noises) #
+        real_preds = Police(real_images)
+        fake_preds = Police(fake_images)
+        # print('real_preds:', real_preds.shape)
+        # print('fake_preds:', fake_preds.shape)
+        
+        E_police = tf.reduce_mean(-(tf.math.log(real_preds) + tf.math.log(1-fake_preds)))
+        E_faker = tf.reduce_mean(-tf.math.log(fake_preds))
+        # print('E_police:',E_police)
+        # print('E_faker:',E_faker)
+        
+    faker_grad = Faker_tape.gradient(E_faker, Faker.trainable_variables) #6공식
+    police_grad = Police_tape.gradient(E_police, Police.trainable_variables)
+ 
+    FakerOpt.apply_gradients(zip(faker_grad,Faker.trainable_variables)) # 7공식    
+    PoliceOpt.apply_gradients(zip(police_grad,Police.trainable_variables))
+    
+    if epoch%100==0: 
+        print('.',end='',flush=True)
+    if epoch%4000==0:
+        print('epoch: {}; E_faker: {:.6f}; E_police: {:.6f}'.format(epoch+1, E_faker, E_police))
+        # Plot generated images
+        for i in range(10):
+            plt.subplot(1,10,i+1)
+            plt.imshow(Faker(z_vis)[i,:,:]*255.0)
+            plt.axis('off')
+        plt.show()
+---------------------------------------
+핵심 계산공식
+Ep = -(log(R) + log(1-F)) .. R->1, F->0 이면 Ep->0
+Ef = -logF … F->1 이면 Ef->0
+Ef가 이길 때까지 반복하는 것임
+
+오차를 계산하는 방식이 이전의 모델들과 다르기 때문에 fit을 통으로 사용 못하는 것
