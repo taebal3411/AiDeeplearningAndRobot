@@ -1,0 +1,31 @@
+#GAN
+#오차가 이전에 배웠던 평균제곱오차 형태가 아니라서 gradient tape을 써서 직접 학습시켜야 함
+#AutuEncoder와 비슷하게 사용되는 두 신경망이 시작과 끝 형태를 갖추고 있다
+
+import tensorflow as tf
+ 
+mnist = tf.keras.datasets.mnist
+(X, YT), (x, yt) = mnist.load_data()
+X, x = X/255, x/255
+X, x = X.reshape((60000,28*28)), x.reshape((10000,28*28))
+ 
+model = tf.keras.Sequential([
+        tf.keras.Input(shape=(28*28,)),
+        tf.keras.layers.Dense(128, activation='relu'),
+        tf.keras.layers.Dense(10, activation='softmax')
+]) # 신경망 모양 결정(W, B 내부적 준비)
+ 
+#model.fit을 직접 구성하기
+optimizer = tf.keras.optimizers.Adam()
+loss = tf.keras.losses.SparseCategoricalCrossentropy()
+ 
+for epoch in range(5):
+    print('epoch=%d' %epoch)
+    with tf.GradientTape() as tape:
+        Y = model(X) #1공식
+        E = loss(YT-Y) #2공식
+    gradients = tape.gradients(E, model.trainable_variables) #6공식
+    optimizer.apply_gradients(zip(gradient, model.trainable_variables)) #7공식
+
+
+
