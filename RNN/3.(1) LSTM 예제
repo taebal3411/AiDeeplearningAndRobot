@@ -42,3 +42,12 @@ Epoch 10000/10000
 (13, 3) (13,)  # print(x.shape, y.shape)
 
 (13, 3, 1)  # print(x.shape)
+
+#참고 사이트
+RNN+LSTM 설명
+https://colah.github.io/posts/2015-08-Understanding-LSTMs/
+RNN+LSTM 설명
+https://docs.likejazz.com/lstm/
+LSTM 구현
+https://github.com/likejazz/jupyter-notebooks/blob/master/deep-learn
+ing/lstm-keras-inspect.py
