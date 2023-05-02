@@ -1,6 +1,4 @@
-#GAN
-#오차가 이전에 배웠던 평균제곱오차 형태가 아니라서 gradient tape을 써서 직접 학습시켜야 함
-#AutuEncoder와 비슷하게 사용되는 두 신경망이 시작과 끝 형태를 갖추고 있다
+#Gradient tape – model.fit을 직접 구현하는 것
 
 import tensorflow as tf
  
@@ -26,6 +24,3 @@ for epoch in range(5):
         E = loss(YT-Y) #2공식
     gradients = tape.gradients(E, model.trainable_variables) #6공식
     optimizer.apply_gradients(zip(gradient, model.trainable_variables)) #7공식
-
-
-
